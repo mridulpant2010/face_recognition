@@ -1,0 +1,27 @@
+[project]
+name = "face-recognition"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Mridul Pant", email = "mridulpant2010@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "facenet-pytorch>=2.6.0",
+    "insightface>=2.0",
+    "matplotlib>=3.11.2",
+    "onnx==1.17.0",
+    "onnxruntime>=1.30.0",
+    "opencv-python>=4.11.0.86",
+    "pillow>=10.2.0",
+    "torch>=2.2.2",
+    "torchvision>=0.17.2",
+]
+
+[project.scripts]
+face-recognition = "face_recognition:main"
+
+[build-system]
+requires = ["uv_build>=0.12.1,<0.13.0"]
+build-backend = "uv_build"
