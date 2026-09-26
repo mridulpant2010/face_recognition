@@ -1,86 +1,76 @@
-"""
-RAG Pipeline Runner
-===================
-Main entry point that orchestrates the full pipeline:
-
-    Step 1: INGEST  — Scan VGGFace2, embed gallery images, populate FAISS.
-    Step 2: RETRIEVE — (Optional) Run a single-image demo query.
-    Step 3: EVALUATE — Run all probe images through the pipeline and compute metrics.
-
-Usage:
-    # Run the full pipeline (ingest + evaluate):
-    python -m face_recognition.rag.run_pipeline
-
-    # Run only ingestion:
-    python -m face_recognition.rag.run_pipeline --ingest-only
-
-    # Run only evaluation (if you already ingested):
-    python -m face_recognition.rag.run_pipeline --eval-only
-
-    # Run a single query demo:
-    python -m face_recognition.rag.run_pipeline --query path/to/face.jpg
-"""
-
 import argparse
+import logging
+import sys
 
-from . import config
-from .ingest import run_ingestion
-from .retrieve import run_retrieval_demo
-from .evaluate import run_evaluation
+from .core import config
+from .core.exceptions import FaceRAGError
+from .pipeline.ingest import run_ingestion
+from .pipeline.retrieve import FaceRetriever
+from .pipeline.evaluate import run_evaluation
 
+# Configure standard root logger
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger("rag_pipeline")
+
+def create_embedder():
+    from .implementations.arcface_embedder import ArcFaceEmbedder
+    return ArcFaceEmbedder()
+
+def create_store(load_existing: bool = False):
+    from .implementations.faiss_vector_store import FaissVectorStore
+    store = FaissVectorStore()
+    if load_existing:
+        store.load()
+    return store
+
+def handle_query(query_image: str) -> None:
+    logger.info(f"Running single query for {query_image}")
+    embedder = create_embedder()
+    store = create_store(load_existing=True)
+    retriever = FaceRetriever(embedder, store)
+
+    result = retriever.query(query_image)
+    logger.info(f"Predicted ID: {result['predicted_identity']} (Score: {result['top_match_similarity']:.4f})")
+    
+    if result["matches"]:
+        logger.info("Top Matches:")
+        for m in result["matches"]:
+            logger.info(f"  [{m['rank']}] {m['identity']} ({m['similarity']:.4f})")
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Face Recognition RAG Pipeline — ArcFace + FAISS"
-    )
-    parser.add_argument(
-        "--ingest-only",
-        action="store_true",
-        help="Only run the ingestion phase (embed + store gallery images)."
-    )
-    parser.add_argument(
-        "--eval-only",
-        action="store_true",
-        help="Only run evaluation (requires a previously ingested FAISS index)."
-    )
-    parser.add_argument(
-        "--query",
-        type=str,
-        default=None,
-        help="Path to a single query image for a retrieval demo."
-    )
+    parser = argparse.ArgumentParser(description="Face Recognition RAG Pipeline")
+    parser.add_argument("--ingest-only", action="store_true", help="Run ingestion phase")
+    parser.add_argument("--eval-only", action="store_true", help="Run evaluation phase")
+    parser.add_argument("--query", type=str, help="Path to query image")
+    parser.add_argument("--debug", action="store_true", help="Enable debug logging")
     args = parser.parse_args()
 
-    if args.query:
-        # Just run a single retrieval demo
-        run_retrieval_demo(args.query)
-        return
+    if args.debug:
+        logging.getLogger().setLevel(logging.DEBUG)
 
-    if args.eval_only:
-        run_evaluation()
-        return
-
-    if args.ingest_only:
-        run_ingestion()
-        return
-
-    # Default: run the full pipeline
-    print("\n" + "#" * 60)
-    print("#  FACE RECOGNITION RAG PIPELINE")
-    print(f"#  Dataset    : {config.VGGFACE2_ROOT}")
-    print(f"#  Model      : {config.ARCFACE_MODEL_NAME}")
-    print(f"#  Gallery %  : {config.GALLERY_RATIO:.0%}")
-    print(f"#  Threshold  : {config.SIMILARITY_THRESHOLD}")
-    print(f"#  Top-K      : {config.TOP_K}")
-    print("#" * 60 + "\n")
-
-    # Phase 1: Ingest
-    run_ingestion()
-
-    # Phase 3: Evaluate
-    print("\n")
-    run_evaluation()
-
+    try:
+        if args.query:
+            handle_query(args.query)
+        elif args.eval_only:
+            run_evaluation(retriever=FaceRetriever(create_embedder(), create_store(True)))
+        elif args.ingest_only:
+            run_ingestion(embedder=create_embedder(), store=create_store(False))
+        else:
+            logger.info("Running full pipeline (Ingest -> Evaluate)")
+            embedder = create_embedder()
+            run_ingestion(embedder=embedder, store=create_store(False))
+            run_evaluation(retriever=FaceRetriever(embedder, create_store(True)))
+            
+    except FaceRAGError as e:
+        logger.error(f"Pipeline error: {e}")
+        sys.exit(1)
+    except KeyboardInterrupt:
+        logger.error("Pipeline interrupted.")
+        sys.exit(130)
 
 if __name__ == "__main__":
     main()
