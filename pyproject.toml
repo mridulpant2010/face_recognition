@@ -17,6 +17,8 @@ dependencies = [
     "pillow>=10.2.0",
     "torch>=2.2.2",
     "torchvision>=0.17.2",
+    "faiss-cpu>=1.7.0",
+    "tqdm>=4.60.0",
 ]
 
 [project.scripts]

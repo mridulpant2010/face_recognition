@@ -1,0 +1,78 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.uv/
+
+# Environment variables & secrets
+.env
+.env.*
+*.pem
+*.key
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# Machine Learning Models & Checkpoints
+*.pth
+*.pt
+*.onnx
+*.bin
+*.h5
+*.tflite
+*.safetensors
+.insightface/
+models/
+checkpoints/
+
+# Datasets & Media Files
+dataset/
+datasets/
+data/
+src/dataset/
+*.jpg
+*.jpeg
+*.png
+
+# Vector Stores & Embeddings Cache
+faiss_db/
+vector_db/
+chroma_db/
+*.index
+*.pkl
+*.npy
+*.npz
+*.parquet
+
+# Generated Outputs & Logs
+*_detection.png
+*.log
+logs/
+outputs/
+runs/
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Distribution & Build
+build/
+dist/
+*.egg-info/
+.eggs/
