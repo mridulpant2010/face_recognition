@@ -48,6 +48,7 @@ src/dataset/
 *.png
 
 # Vector Stores & Embeddings Cache
+src/face_recognition/rag/faiss_store/
 faiss_db/
 vector_db/
 chroma_db/

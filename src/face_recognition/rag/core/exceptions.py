@@ -30,3 +30,6 @@ class InsufficientDataError(FaceRAGError):
 
 class ProbeSetNotFoundError(FaceRAGError):
     pass
+
+class TextEncodingError(FaceRAGError):
+    pass

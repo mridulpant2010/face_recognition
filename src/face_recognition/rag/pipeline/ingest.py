@@ -62,26 +62,60 @@ def run_ingestion(embedder: BaseEmbedder | None = None, store: BaseVectorStore |
     identity_map = discover_dataset(dataset_root)
     gallery_map, probe_map = split_gallery_probe(identity_map)
 
-    logger.info("Extracting embeddings for gallery images...")
-    all_embeddings, all_metadata = [], []
+    logger.info("Extracting embeddings for gallery images (with checkpointing)...")
     
-    for identity, images in tqdm(gallery_map.items(), desc="Processing identities"):
+    checkpoint_file = config.FAISS_INDEX_DIR / "processed_identities.json"
+    processed_identities = set()
+    
+    # Load checkpoint if it exists
+    if checkpoint_file.exists():
+        try:
+            with open(checkpoint_file, "r") as f:
+                processed_list = json.load(f)
+                processed_identities = set(processed_list)
+            logger.info(f"Loaded checkpoint: {len(processed_identities)} identities already processed.")
+            # Load the existing store to append to it
+            try:
+                store.load()
+                logger.info(f"Loaded existing FAISS index with {store.total_vectors} vectors.")
+            except Exception as e:
+                logger.warning(f"Could not load FAISS index ({e}). Starting fresh.")
+                processed_identities = set()
+        except Exception as e:
+            logger.warning(f"Could not read checkpoint file ({e}). Starting fresh.")
+
+    # Sort items for deterministic processing
+    for i, (identity, images) in enumerate(tqdm(gallery_map.items(), desc="Processing identities")):
+        if identity in processed_identities:
+            continue
+            
+        identity_embeddings, identity_metadata = [], []
+        
         for img_path in images:
             try:
                 emb = embedder.embed(str(img_path))
                 if emb is not None:
-                    all_embeddings.append(emb)
-                    all_metadata.append({"identity": identity, "image_path": str(img_path)})
+                    identity_embeddings.append(emb)
+                    identity_metadata.append({"identity": identity, "image_path": str(img_path)})
             except (ImageReadError, Exception):
                 continue
 
-    if not all_embeddings:
+        # Add this identity to the store immediately if valid faces were found
+        if identity_embeddings:
+            embeddings_matrix = np.stack(identity_embeddings, axis=0).astype(np.float32)
+            store.add(embeddings_matrix, identity_metadata)
+            
+        processed_identities.add(identity)
+        
+        # Save checkpoint every 10 identities or at the very end
+        if (i + 1) % 10 == 0 or (i + 1) == len(gallery_map):
+            store.save()
+            with open(checkpoint_file, "w") as f:
+                json.dump(list(processed_identities), f)
+
+    if store.total_vectors == 0:
         logger.error("No embeddings extracted. Aborting ingestion.")
         return
-
-    embeddings_matrix = np.stack(all_embeddings, axis=0).astype(np.float32)
-    store.add(embeddings_matrix, all_metadata)
-    store.save()
 
     probe_save_path = config.FAISS_INDEX_DIR / "probe_set.json"
     probe_serialisable = {ident: [str(p) for p in paths] for ident, paths in probe_map.items()}
