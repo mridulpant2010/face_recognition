@@ -77,3 +77,8 @@ build/
 dist/
 *.egg-info/
 .eggs/
+
+
+# Additional folders
+dataset/
+embeddings/
