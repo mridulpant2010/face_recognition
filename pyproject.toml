@@ -12,18 +12,23 @@ dependencies = [
     "insightface>=2.0",
     "matplotlib>=3.11.2",
     "onnx==1.17.0",
-    "onnxruntime>=1.30.0",
     "opencv-python>=4.11.0.86",
     "pillow>=10.2.0",
     "torch>=2.2.2",
     "torchvision>=0.17.2",
     "faiss-cpu>=1.7.0",
     "tqdm>=4.60.0",
+    "sudo>=1.0.0",
+    "onnxruntime-gpu<1.27.0",
+    "nvidia-cudnn-cu12>=8.9.2.26",
+    "bcubed>=1.5",
+    "scikit-learn>=1.9.1",
 ]
 
-[project.scripts]
-face-recognition = "face_recognition:main"
 
 [build-system]
 requires = ["uv_build>=0.12.1,<0.13.0"]
 build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 85
